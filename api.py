@@ -29,23 +29,22 @@ def racine():
 def upload_from_data_uri(payload: UploadPayload):
     try:
         # On "déballe" la Data URI reçue de Bubble
-        # 1. On sépare l'en-tête (ex: "data:audio/wav;base64,") des données
         header, encoded_data = payload.data_uri.split(",", 1)
-        
-        # 2. On décode le texte Base64 pour obtenir les données audio pures
         audio_data = base64.b64decode(encoded_data)
 
-        # On envoie maintenant les données pures à Cloudinary
+        # On envoie les données pures à Cloudinary
         upload_result = cloudinary.uploader.upload(
-            audio_data, # On utilise les données décodées et non plus le texte complet
-            resource_type = "video", # Cloudinary gère l'audio dans la catégorie "video"
+            audio_data,
+            resource_type = "video",
             upload_preset = payload.upload_preset,
-            folder = "spots_radio_tts" # Optionnel : pour ranger les fichiers
+            folder = "spots_radio_tts"
         )
         
-        # On renvoie la réponse de Cloudinary (qui contient la secure_url)
         return upload_result
 
     except Exception as e:
-        # En cas d'erreur, on renvoie un message clair
+        # NOUVEAU : On affiche l'erreur détaillée dans les logs de Render
+        print(f"ERREUR DÉTAILLÉE : {e}")
+        
+        # On renvoie toujours une erreur à Bubble
         raise HTTPException(status_code=500, detail=str(e))
