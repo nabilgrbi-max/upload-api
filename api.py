@@ -28,9 +28,16 @@ def racine():
 @app.post("/upload_from_data_uri/")
 def upload_from_data_uri(payload: UploadPayload):
     try:
-        # On envoie la Data URI directement à Cloudinary, qui sait la décoder
+        # On "déballe" la Data URI reçue de Bubble
+        # 1. On sépare l'en-tête (ex: "data:audio/wav;base64,") des données
+        header, encoded_data = payload.data_uri.split(",", 1)
+        
+        # 2. On décode le texte Base64 pour obtenir les données audio pures
+        audio_data = base64.b64decode(encoded_data)
+
+        # On envoie maintenant les données pures à Cloudinary
         upload_result = cloudinary.uploader.upload(
-            payload.data_uri,
+            audio_data, # On utilise les données décodées et non plus le texte complet
             resource_type = "video", # Cloudinary gère l'audio dans la catégorie "video"
             upload_preset = payload.upload_preset,
             folder = "spots_radio_tts" # Optionnel : pour ranger les fichiers
