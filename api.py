@@ -1,5 +1,6 @@
 import os
 import base64
+import uuid
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import cloudinary
@@ -24,17 +25,24 @@ app = FastAPI()
 def racine():
     return {"message": "API Adeasy.io prête pour l'upload !"}
 
-# Notre nouvelle route qui fait le travail
+# La route qui fait le travail, version finale et robuste
 @app.post("/upload_from_data_uri/")
 def upload_from_data_uri(payload: UploadPayload):
+    # On crée un nom de fichier temporaire unique dans un dossier accessible
+    temp_filename = f"/tmp/{uuid.uuid4()}.mp3"
+    
     try:
-        # On "déballe" la Data URI reçue de Bubble
+        # 1. On décode la Data URI pour obtenir les données audio pures
         header, encoded_data = payload.data_uri.split(",", 1)
         audio_data = base64.b64decode(encoded_data)
 
-        # On envoie les données pures à Cloudinary
+        # 2. On écrit ces données dans un vrai fichier sur le serveur
+        with open(temp_filename, "wb") as f:
+            f.write(audio_data)
+
+        # 3. On envoie ce fichier temporaire à Cloudinary
         upload_result = cloudinary.uploader.upload(
-            audio_data,
+            temp_filename,
             resource_type = "video",
             upload_preset = payload.upload_preset,
             folder = "spots_radio_tts"
@@ -43,8 +51,10 @@ def upload_from_data_uri(payload: UploadPayload):
         return upload_result
 
     except Exception as e:
-        # NOUVEAU : On affiche l'erreur détaillée dans les logs de Render
         print(f"ERREUR DÉTAILLÉE : {e}")
-        
-        # On renvoie toujours une erreur à Bubble
         raise HTTPException(status_code=500, detail=str(e))
+    
+    finally:
+        # 4. Quoi qu'il arrive, on supprime le fichier temporaire pour nettoyer
+        if os.path.exists(temp_filename):
+            os.remove(temp_filename)
